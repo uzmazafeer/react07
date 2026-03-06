@@ -1,52 +1,84 @@
 import React, { useState } from 'react';
 import Swal from 'sweetalert2';
-import { db, auth } from "../config/firebase.js"; 
-import { doc, updateDoc, increment, addDoc, collection } from "firebase/firestore";
+
+import { db } from '../firebase';
+import { doc, updateDoc, addDoc, collection } from "firebase/firestore";
+
 const TransactionActions = ({ userId, currentBalance }) => {
+
   const [amount, setAmount] = useState('');
 
   const handleTransaction = async (type) => {
+
     const numAmount = parseFloat(amount);
-    if (!numAmount || numAmount <= 0) return alert("Enter valid amount");
+
+    if (!numAmount || numAmount <= 0) {
+      return alert("Enter valid amount");
+    }
 
     if (type === 'withdraw' && numAmount > currentBalance) {
       return Swal.fire('Error', 'Insufficient Balance!', 'error');
     }
 
+    const newBalance =
+      type === 'deposit'
+        ? currentBalance + numAmount
+        : currentBalance - numAmount;
+
     try {
-      // Update user balance in Firestore
-      const userDocRef = doc(db, 'users', userId);
-      const balanceChange = type === 'deposit' ? numAmount : -numAmount;
-      await updateDoc(userDocRef, {
-        balance: increment(balanceChange)
+
+      // user balance update
+      const userRef = doc(db, "users", userId);
+
+      await updateDoc(userRef, {
+        balance: newBalance
       });
 
-      // Save transaction record
-      await addDoc(collection(db, 'transactions'), {
-        userId,
-        type,
+      // transaction save
+      await addDoc(collection(db, "transactions"), {
+        userId: userId,
+        type: type,
         amount: numAmount,
-        timestamp: new Date()
+        date: new Date()
       });
 
-      Swal.fire('Success', `${type.charAt(0).toUpperCase() + type.slice(1)} Successful`, 'success');
+      Swal.fire('Success', `${type} Successful`, 'success');
+
       setAmount('');
+
     } catch (error) {
-      Swal.fire('Error', error.message, 'error');
+      console.log(error);
+      Swal.fire('Error', 'Transaction Failed', 'error');
     }
   };
 
   return (
     <div className="grid grid-cols-2 gap-4 mb-6">
-      <input 
-        type="number" 
-        placeholder="Enter Amount" 
-        value={amount} 
+
+      <input
+        type="number"
+        placeholder="Enter Amount"
+        value={amount}
         onChange={(e) => setAmount(e.target.value)}
         className="col-span-2 p-2 rounded border"
       />
-      <button onClick={() => handleTransaction('deposit')} className="bg-green-500 text-white p-3 rounded-lg font-bold">Deposit</button>
-      <button onClick={() => handleTransaction('withdraw')} className="bg-red-500 text-white p-3 rounded-lg font-bold">Withdraw</button>
+
+      <button
+        onClick={() => handleTransaction('deposit')}
+        className="bg-green-500 text-white p-3 rounded-lg font-bold"
+      >
+        Deposit
+      </button>
+
+      <button
+        onClick={() => handleTransaction('withdraw')}
+        className="bg-red-500 text-white p-3 rounded-lg font-bold"
+      >
+        Withdraw
+      </button>
+
     </div>
   );
 };
+
+export default TransactionActions;
